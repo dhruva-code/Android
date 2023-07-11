@@ -1,0 +1,110 @@
+==============================
+Installing & upgrading frida
+=================================
+
+pip3 install frida	#install frida
+pip3 install --upgrade frida	#upgrades frida to latest version
+
+==================================
+frida commands:
+==================================
+
+$ frida-ps -Uai	#list out package names installed
+$ frida -U  -n "packagename"	#to hook into target application
+
+$ objection --gadget packagename explore		#hooking target application on emulator
+$ objection packagename explore			#hooking target application on rooted device
+
+
+$objection patchapk --source appname -a  architecturename	#patching application with frida into the application
+
+==================== after installing patched apk ========================
+
+$ frida -U -n gadgetname 	#to hook into the target gadget
+$ frida -U -f packagename	#forcing the applciation to run
+
+==========================================================================
+SSL pinning bypass by forcing application to trust user certificates
+==========================================================================
+
+1. disassemble the apk using apktool
+2. open android manifest.xml file
+3. look for "networkSecurityConfig"		#this feature is used to restrict the device apps to trust user installed certificates
+4. check for the file which mentioned in networksecurityconfig to manipulate the checks
+5. open the file
+6. include the line "<certificates src="user"/>		#manioulating the app to trust user certificates
+7. build the apk using apktool
+8. sign the application
+
+=========================================
+
+signing applciation:
+
+1. use keytool to generate a key
+	a. keytool -genkey -v -keystore mysigning.keystore -alias appname -keyalg RSA -keysize2048 -validity 1000 
+	b. set password
+	c. give details
+	d. this creates a keystore
+
+2. jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 -keystore mysigning.keystore appname aliasname
+	a. enter phassphrase which was set earlier
+3. install the new application
+
+==========================================
+
+# root detection bypass
+
+1. objection --gadget packagename explore	#using objection to hook into target application
+2. use the command "android hooking watch class com.apppackagename.usermainactivity" to detect the code that identifying root detection
+3. if you dont know the classes use command "android hooking list classes"
+4. "android hooking list classe_methods class-name-of target-app explore" # to list out methods
+5. after finding the method in the target app that detects root use the below command:
+android hooking set retrun_value specify-exact-method-name-here false
+
+example: android hooking set return_value com.androidpentesting.securestorev2.UserMainActivity.isDeviceRooted false
+
+6. if executing the above command fails we need to try --startup-command in the objection to excute the command  to run before the repl polls the device for information
+
+example: objection --gadget com.androidpentesting.securestorev2 explore -s "insert command from 5th point here" 
+
+7. if the above method also doesnot work lets use frida.
+8. launch the application using frida -f command
+9. now execute the objection command from 6th point
+10. enter resume command in frida to resume the application process and thus we can bypass root detection
+
+11. we can also set android root state value to disable using objection while running an application to bypass root detection. this may or may not work for all applciations
+
+command: objection --gadget packagename -s "android root disable"
+
+
+==================================================================
+		Root bypass using frida
+==================================================================
+
+run command "adb shell getprop ro.product.cpu.abi" to get architeture of your mobile and download frida server according to the architecture.
+
+1. copy frida server to mobile
+2. run frida server as root user
+3. on mobexler type command "frida -U --codeshare dzonerzy/fridantiroot -f packagename --no-pause"
+
+==========================================================================
+
+		Root and SSL pinning bypass using master script
+
+===========================================================================
+
+#frida -U -l masterscript.js -f packagename --no-pause 
+
+==============================================================================
+
+				Some Misc
+
+===============================================================================
+
+# get android packages list
+
+adb shell pm list packages -f -3
+
+# pull android package from device to system in apk format
+
+adb pull /data/app/XX.XX.XX.apk
